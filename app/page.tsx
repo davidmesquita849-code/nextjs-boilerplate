@@ -1,65 +1,106 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+export default function Page() {
+  const [session, setSession] = useState<any>(null);
+  const [email, setEmail] = useState('');
+  const [steps, setSteps] = useState<number>(0);
+
+  const goal = 10000;
+  const percent = Math.min(100, Math.round((steps/goal)*100));
+  const today = new Date().toISOString().slice(0,10);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  async function signIn() {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin }
+    });
+    if (error) alert(error.message);
+    else alert('Magic Link gesendet ✅ Check deine E-Mail.');
+  }
+
+  async function saveSteps() {
+    if (!session?.user?.id) return alert('Bitte zuerst einloggen.');
+    const base = steps >= 15000 ? 15 : steps >= 10000 ? 10 : steps >= 5000 ? 5 : 0;
+
+    await supabase.from('steps_daily').upsert({
+      user_id: session.user.id,
+      date: today,
+      steps,
+      points_base: base,
+      multiplier: 1.0,
+      delivered: steps >= goal
+    });
+
+    if (steps >= goal) {
+      await supabase.from('calendar_days').upsert({ user_id: session.user.id, date: today, reached: true });
+    }
+
+    alert('Gespeichert ✅');
+  }
+
+  const [quote, setQuote] = useState<{spruch:string;autor:string|null}|null>(null);
+  useEffect(() => {
+    supabase.from('motivations').select('spruch,autor').eq('aktiv', true).then(({data})=>{
+      if (data?.length) setQuote(data[Math.floor(Math.random()*data.length)] as any);
+    });
+  }, []);
+
+  if (!session) {
+    return (
+      <div style={{padding:20, textAlign:'center', fontFamily:'system-ui'}}>
+        <h1 style={{color:'#C8102E', marginBottom:8}}>RELOAD</h1>
+        {quote && <p style={{opacity:.8, fontStyle:'italic'}}>„{quote.spruch}“ {quote.autor?`— ${quote.autor}`:''}</p>}
+        <p>Login via Magic Link</p>
+        <input
+          placeholder="E-Mail"
+          value={email}
+          onChange={(e)=>setEmail(e.target.value)}
+          style={{padding:10, borderRadius:8, background:'#111', border:'1px solid #444', color:'#fff'}}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <div style={{height:8}} />
+        <button
+          onClick={signIn}
+          style={{background:'#C8102E', color:'#fff', border:0, padding:'10px 14px', borderRadius:8}}
+        >Link senden</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:20, fontFamily:'system-ui'}}>
+      <h1 style={{color:'#C8102E'}}>RELOAD</h1>
+      {quote && <p style={{opacity:.8, fontStyle:'italic'}}>„{quote.spruch}“ {quote.autor?`— ${quote.autor}`:''}</p>}
+      <p>Heute: {today}</p>
+
+      <label>Schritte heute</label>
+      <div style={{display:'flex', gap:8, alignItems:'center'}}>
+        <input
+          type="number"
+          value={steps}
+          onChange={(e)=>setSteps(Number(e.target.value))}
+          style={{padding:10, borderRadius:8, background:'#111', border:'1px solid #444', color:'#fff'}}
+        />
+        <button
+          onClick={saveSteps}
+          style={{background:'#C8102E', color:'#fff', border:0, padding:'10px 14px', borderRadius:8}}
+        >Speichern</button>
+      </div>
+
+      <div style={{marginTop:16, background:'#2A2A2A', borderRadius:12, height:18, overflow:'hidden'}}>
+        <div style={{width:`${percent}%`, height:'100%', background: percent>=100 ? '#00FF66' : '#C8102E', transition:'width .6s'}} />
+      </div>
+      <p style={{opacity:.8}}>{steps} / {goal} Schritte ({percent}%)</p>
+
+      <p style={{opacity:.8}}><a href="/leaderboard" style={{color:'#C8102E', textDecoration:'none'}}>→ Zum Monats-Ranking</a></p>
     </div>
   );
 }
