@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib';
 
 export default function Page() {
   const [session, setSession] = useState<any>(null);
