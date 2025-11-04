@@ -7,9 +7,7 @@ module.exports = {
   ],
   theme: {
     extend: {
-      colors: {
-        reload: "#C8102E"
-      }
+      colors: { reload: "#C8102E" }
     },
   },
   plugins: [],
