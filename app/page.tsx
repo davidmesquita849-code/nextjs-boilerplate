@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '../libe/superbase';
+import { supabase } from '../lib/supabase';
 
 export default function Page() {
   const [session, setSession] = useState<any>(null);
@@ -23,7 +23,7 @@ export default function Page() {
 
   // Login mit Magic Link
   async function signIn() {
-    const { error } = await superbase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.origin },
     });
