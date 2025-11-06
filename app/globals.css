@@ -1,6 +1,4 @@
- @tailwind base;
-@tailwind components;
-@tailwind utilities;
+
 
 /* Optional: Dark-Base für RELOAD */
 :root { color-scheme: dark; }
